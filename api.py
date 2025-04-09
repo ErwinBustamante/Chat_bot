@@ -34,7 +34,7 @@ app.add_middleware(
 )
 
 # API GEMINI
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyA0BI0D3MTeyond5wo-htk3bLBfLkUnNwU")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "tu_api_key_de_gemini")
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
 
 class DocumentoCarrera(BaseModel):
