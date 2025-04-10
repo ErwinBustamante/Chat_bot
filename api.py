@@ -11,6 +11,7 @@ import os
 from data.sinonimos import CARRERAS_SINONIMOS
 from data.variaciones import CARRERAS_VARIACIONES
 from data.carreras import LISTA_COMPLETA_CARRERAS
+from data.horario import HORARIO_CARRERA
 from datetime import datetime
 from fastapi import APIRouter
 import uuid
@@ -130,7 +131,7 @@ def obtener_documentos_carrera(cursor, nombre_carrera: str) -> List[DocumentoCar
         return []
 
 def query_carrera(nombre_carrera: str) -> Optional[dict]:
-    """Consulta información de carrera en la base de datos incluyendo documentos"""
+    """Consulta información de carrera en la base de datos incluyendo documentos y horarios"""
     with get_db_cursor() as cursor:
         try:
             # Consulta información básica de la carrera
@@ -151,9 +152,13 @@ def query_carrera(nombre_carrera: str) -> Optional[dict]:
             # Obtiene documentos asociados
             documentos = obtener_documentos_carrera(cursor, nombre_carrera)
             
+            # Obtiene horarios de la carrera
+            horarios = HORARIO_CARRERA.get(carrera_data['nombre'].upper(), {})
+            
             return {
                 **carrera_data,
-                "documentos": documentos
+                "documentos": documentos,
+                "horarios": horarios
             }
             
         except Exception as e:
@@ -289,6 +294,13 @@ Y finalle comentas los veneficios de la UBE.
 Usuario: {user_message}
 Sara:"""
     
+    # Sección para horarios
+    horarios_info = ""
+    if db_data.get('horarios'):
+        horarios_info = "\n\nHorarios disponibles:\n"
+        for nivel, info_horario in db_data['horarios'].items():
+            horarios_info += f"- {nivel}: {info_horario.get('dias', '')} de {info_horario.get('horario', '')}\n"
+    
     documentos_info = ""
     if db_data.get('documentos'):
         doc_names = [doc.nombre for doc in db_data['documentos']]
@@ -304,6 +316,7 @@ Información de la carrera {db_data.get('nombre', '')}:
   * Matrícula: ${db_data.get('matrícula', '')}
   * Cuotas mensuales: ${db_data.get('cuotas_mensuales', '')}
 - Perfil profesional: {db_data.get('descripcion', '')}
+{horarios_info}
 {documentos_info}
 """
     
@@ -401,7 +414,8 @@ async def chat(message: Message):
                     "fecha_upload": doc.fecha_upload.isoformat()
                 }
                 for doc in db_data.get('documentos', [])
-            ] if db_data else None
+            ] if db_data else None,
+            "horarios": db_data.get('horarios') if db_data else None
         }
 
         assistant_msg = ChatMessage(
@@ -426,6 +440,7 @@ async def chat(message: Message):
             status_code=500,
             detail="Ocurrió un error al procesar tu mensaje"
         )
+
 @app.get("/documentos/{id_documento}")
 async def obtener_documento(id_documento: int):
     """Devuelve el documento directamente desde la base de datos"""
@@ -443,7 +458,7 @@ async def obtener_documento(id_documento: int):
                 raise HTTPException(status_code=404, detail="Documento no encontrado o vacío")
 
             return Response(
-                content=doc['contenido'],  # Contenido binario directo
+                content=doc['contenido'],
                 media_type="application/pdf",
                 headers={
                     "Content-Disposition": f"inline; filename={doc['nombre'] or 'documento'}.pdf"
